@@ -21,11 +21,8 @@ func main() {
 	out := flag.String("out", "required", "output file for wrappers")
 	flag.Parse()
 	fset := token.NewFileSet()
-	// func ParseDir(fset *token.FileSet, path string, filter func(os.FileInfo) bool, mode Mode) (pkgs map[string]*ast.Package, first error)
-	packages, err := parser.ParseDir(fset, ".", nil, parser.ParseComments)
-	if err != nil {
-		panic(err)
-	}
+	// note: we're ignoring the error below because invocations of the synthesized functions will always generate errors
+	packages, _ := parser.ParseDir(fset, ".", nil, parser.ParseComments)
 	if ast_, ok := packages[*pkg]; !ok {
 		panic("package not found " + *pkg)
 	} else {

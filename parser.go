@@ -98,7 +98,10 @@ func Candidates(v *Visitor, pkg *ast.Package) []FoundFunction {
 	fmt.Printf("methods %v\n", v.Methods)
 	fmt.Printf("functions %v\n", v.Functions)
 	fmt.Printf("mimetypes %v\n", v.Mimetypes)
-	conf := types.Config{Importer: gcexportdata.NewImporter(v.Fset, make(map[string]*types.Package))}
+	conf := types.Config{
+		Importer: gcexportdata.NewImporter(v.Fset, make(map[string]*types.Package)),
+		IgnoreFuncBodies: true,
+	}
 	files := make([]*ast.File, 0, len(pkg.Files))
 	for _, v := range pkg.Files {
 		files = append(files, v)
