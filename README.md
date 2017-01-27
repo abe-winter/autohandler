@@ -43,7 +43,7 @@ func (self *Server) HandleApiMethod(w http.ResponseWriter, req *http.Request){
     if _, err := req.Body.Read(raw); err != nil {panic(err)}
     var parsed map[string]interface{}
     if err := json.Unmarshal(raw, &parsed); err != nil {panic(err)}
-    body, retcode := self.TreeDelete(parsed["name"].(string), parsed["flag"].(bool))
+    body, retcode := self.ApiMethod(parsed["name"].(string), parsed["flag"].(bool))
     w.WriteHeader(retcode)
     io.WriteString(w, string(body))
 }
