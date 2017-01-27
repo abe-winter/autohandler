@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"bytes"
 	"go/ast"
+	"strings"
 	"go/token"
 	"go/types"
-	"strings"
+	"go/format"
 
 	"golang.org/x/tools/go/gcexportdata"
 )
@@ -85,6 +87,7 @@ func Scrape(fset *token.FileSet, p *ast.Package) *Visitor {
 
 type FoundFunction struct {
 	decl     *ast.FuncDecl
+	tp       *types.Func
 	mimetype string
 }
 
@@ -126,7 +129,7 @@ func Candidates(v *Visitor, pkg *ast.Package) []FoundFunction {
 				if sig.Recv() != nil {
 					if methods, ok := v.Methods[sig.Recv().Type().String()]; ok {
 						if fn, ok := methods[decl.Name()]; ok {
-							found_functions = append(found_functions, FoundFunction{fn, mimetype})
+							found_functions = append(found_functions, FoundFunction{fn, decl, mimetype})
 						}
 					}
 				} else {
@@ -138,7 +141,7 @@ func Candidates(v *Visitor, pkg *ast.Package) []FoundFunction {
 	return found_functions
 }
 
-const SUBFN = `func (self %s) %s(w http.ResponseWriter, req *http.Request){
+const JSONSUB = `func (self %s) %s(w http.ResponseWriter, req *http.Request){
     w.Header().Set("Content-Type", "%s")
     raw := make([]byte, 0, 0)
     if _, err := req.Body.Read(raw); err != nil {panic(err)}
@@ -150,32 +153,48 @@ const SUBFN = `func (self %s) %s(w http.ResponseWriter, req *http.Request){
 }
 `
 
+const RAWSUB = `func (self %s) %s(w http.ResponseWriter, req *http.Request){
+	w.Header().Set("Content-Type", "%s")
+    body, retcode := self.%s(%s)
+    w.WriteHeader(retcode)
+    io.WriteString(w, string(body))
+}
+`
+
+func (self *Visitor) FormatNode(node interface{}) string {
+	buf := bytes.Buffer{}
+	format.Node(&buf, self.Fset, node)
+	return buf.String()
+}
+
 func makeWrappers(v *Visitor, funcs []FoundFunction) []string {
 	wrappers := make([]string, 0, len(funcs))
 	for _, ff := range funcs {
 		decl := ff.decl
-		args := make([]string, 0, len(decl.Type.Params.List))
-		casts := make([]string, 0, len(decl.Type.Params.List))
+		argstrings := make([]string, 0, len(decl.Type.Params.List))
+		any_json_args := false
 		for _, field := range decl.Type.Params.List {
-			typename := fmt.Sprintf("%v", field.Type)
-			for _, name := range field.Names {
-				args = append(args, name.Name)
-				casts = append(casts, typename)
+			typename := v.FormatNode(field.Type)
+			if typename == "*http.Request" {
+				argstrings = append(argstrings, "req")
+			} else {
+				for _, name := range field.Names {
+					any_json_args = true
+					argstrings = append(argstrings, fmt.Sprintf(`parsed["%s"].(%s)`, name.Name, typename))
+				}
 			}
 		}
-        json_args := make([]string, len(args))
-        for i, _ := range args {
-            json_args[i] = fmt.Sprintf(`parsed["%s"].(%s)`, args[i], casts[i])
-        }
+		var template_string string
+		if any_json_args {template_string = JSONSUB} else {template_string = RAWSUB}
 		wrappers = append(
 			wrappers,
 			fmt.Sprintf(
-				SUBFN,
+				template_string,
 				FormatReceiver("", decl, false),
 				"Handle"+decl.Name.Name,
 				ff.mimetype,
 				decl.Name.Name,
-				strings.Join(json_args, ", "),
+				strings.Join(argstrings, ", "),
 			),
 		)
 	}

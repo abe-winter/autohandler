@@ -41,6 +41,8 @@ func (self *Server) HandleApiMethod(w http.ResponseWriter, req *http.Request){
 }
 ```
 
-Notes:
-* panics at runtime if casting fails.
-* should replace missing keys with zero values, but instead will crash
+### translation rules
+
+* the parser will try to translate any function that returns (MimeString, int). MimeString is any string override marked with a comment like `type T string //mimetype a/b`
+* if the first argument is an `*http.Request`, it gets passed through to the wrapped function
+* if there are any non-Request arguments, the wrapper will try to cast them out of a json request body and crash if it can't. (This is subideal. We should fail more gently and interpolate zero values for missing keys)
