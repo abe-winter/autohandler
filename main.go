@@ -34,6 +34,7 @@ func main() {
             panic(err)
         } else {
             defer f.Close()
+            f.WriteString("// automatically generated wrappers. probably don't want to edit this or check it in\n")
             f.WriteString(fmt.Sprintf(PREAMBLE, *pkg))
             for _, wrapper := range wrappers {
                 f.WriteString(wrapper)
