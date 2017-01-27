@@ -59,6 +59,6 @@ func (self *Server) HandleApiMethod(w http.ResponseWriter, req *http.Request){
 
 ### getting started
 
-1. `go install github.com/abe-winter/autohandler/main`
+1. `go get github.com/abe-winter/autohandler` to install the command
 1. use a //go:generate comment in your source code (see example above)
 1. run `go generate && go build` in your package dir
