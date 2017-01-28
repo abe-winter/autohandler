@@ -141,25 +141,21 @@ func Candidates(v *Visitor, pkg *ast.Package) []FoundFunction {
 	return found_functions
 }
 
-const JSONSUB = `func (self %s) %s(w http.ResponseWriter, req *http.Request){
-    w.Header().Set("Content-Type", "%s")
-    raw := make([]byte, 0, 0)
-    if _, err := req.Body.Read(raw); err != nil {panic(err)}
-    var parsed map[string]interface{}
-    if err := json.Unmarshal(raw, &parsed); err != nil {panic(err)}
-    body, retcode := self.%s(%s)
-    w.WriteHeader(retcode)
-    io.WriteString(w, string(body))
+const (
+	PARSE_ARGS = `
+	raw := make([]byte, 0, 0)
+	if _, err := req.Body.Read(raw); err != nil {panic(err)}
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(raw, &parsed); err != nil {panic(err)}`
+	WRITE_STRING = `
+	io.WriteString(w, string(body))`
+	FUNCTION = `func (self %s) %s(res http.ResponseWriter, req *http.Request){
+	w.Header().Set("Content-Type", "%s")%s
+	body, retcode := self.%s(%s)
+	w.WriteHeader(retcode)%s
 }
 `
-
-const RAWSUB = `func (self %s) %s(w http.ResponseWriter, req *http.Request){
-	w.Header().Set("Content-Type", "%s")
-    body, retcode := self.%s(%s)
-    w.WriteHeader(retcode)
-    io.WriteString(w, string(body))
-}
-`
+)
 
 func (self *Visitor) FormatNode(node interface{}) string {
 	buf := bytes.Buffer{}
@@ -172,29 +168,39 @@ func makeWrappers(v *Visitor, funcs []FoundFunction) []string {
 	for _, ff := range funcs {
 		decl := ff.decl
 		argstrings := make([]string, 0, len(decl.Type.Params.List))
-		any_json_args := false
+		write_section := WRITE_STRING
+		parse_section := ""
 		for _, field := range decl.Type.Params.List {
 			typename := v.FormatNode(field.Type)
 			if typename == "*http.Request" {
 				argstrings = append(argstrings, "req")
+			} else if typename == "http.ResponseWriter" {
+				argstrings = append(argstrings, "res")
+				write_section = ""
 			} else {
 				for _, name := range field.Names {
-					any_json_args = true
-					argstrings = append(argstrings, fmt.Sprintf(`parsed["%s"].(%s)`, name.Name, typename))
+					var arg string
+					if typename == "interface{}" {
+						arg = fmt.Sprintf(`parsed["%s"]`, name.Name)
+					} else {
+						arg = fmt.Sprintf(`parsed["%s"].(%s)`, name.Name, typename)
+					}
+					argstrings = append(argstrings, arg)
+					parse_section = PARSE_ARGS
 				}
 			}
 		}
-		var template_string string
-		if any_json_args {template_string = JSONSUB} else {template_string = RAWSUB}
 		wrappers = append(
 			wrappers,
 			fmt.Sprintf(
-				template_string,
+				FUNCTION,
 				FormatReceiver("", decl, false),
 				"Handle"+decl.Name.Name,
 				ff.mimetype,
+				parse_section,
 				decl.Name.Name,
 				strings.Join(argstrings, ", "),
+				write_section,
 			),
 		)
 	}
