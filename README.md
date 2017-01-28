@@ -54,7 +54,7 @@ func (self *Server) HandleApiMethod(w http.ResponseWriter, req *http.Request){
 
 * the parser will try to translate any function that returns (MimeString, int). MimeString is any string override marked with a comment like `type T string //mimetype a/b`
 * if any argument has type `*http.Request`, it gets passed through to the wrapped function
-* if any argument has type `http.ResponseWriter`, it gets passed through and the string response of the wrapped function is ignored (i.e. it's assumed the function writes its own output)
+* if any argument has type `http.ResponseWriter`, it gets passed through and the response of the wrapped function is ignored (i.e. it's assumed the function writes its own output). Warning: both the response and status code are returned. This is pretty confusing because the function *looks* like it's returning that stuff. (todo: ResponseWriter functions shouldn't have a return)
 * for other arguments, the wrapper will try to cast them out of a json request body and crash if it can't. (This is subideal. We should fail more gently and interpolate zero values for missing keys)
 * interface args aren't cast
 * json parsing of the body only happens if necessary -- if your function has 0 args or just an *http.Request arg, the json code isn't emitted in the wrapper
