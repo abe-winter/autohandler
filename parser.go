@@ -148,11 +148,11 @@ const (
 	var parsed map[string]interface{}
 	if err := json.Unmarshal(raw, &parsed); err != nil {panic(err)}`
 	WRITE_STRING = `
-	io.WriteString(w, string(body))`
+	io.WriteString(res, string(body))`
 	FUNCTION = `func (self %s) %s(res http.ResponseWriter, req *http.Request){
-	w.Header().Set("Content-Type", "%s")%s
-	body, retcode := self.%s(%s)
-	w.WriteHeader(retcode)%s
+	res.Header().Set("Content-Type", "%s")%s
+	%s, retcode := self.%s(%s)
+	res.WriteHeader(retcode)%s
 }
 `
 )
@@ -170,6 +170,7 @@ func makeWrappers(v *Visitor, funcs []FoundFunction) []string {
 		argstrings := make([]string, 0, len(decl.Type.Params.List))
 		write_section := WRITE_STRING
 		parse_section := ""
+		body_ret := "body"
 		for _, field := range decl.Type.Params.List {
 			typename := v.FormatNode(field.Type)
 			if typename == "*http.Request" {
@@ -177,6 +178,7 @@ func makeWrappers(v *Visitor, funcs []FoundFunction) []string {
 			} else if typename == "http.ResponseWriter" {
 				argstrings = append(argstrings, "res")
 				write_section = ""
+				body_ret = "_"
 			} else {
 				for _, name := range field.Names {
 					var arg string
@@ -198,6 +200,7 @@ func makeWrappers(v *Visitor, funcs []FoundFunction) []string {
 				"Handle"+decl.Name.Name,
 				ff.mimetype,
 				parse_section,
+				body_ret,
 				decl.Name.Name,
 				strings.Join(argstrings, ", "),
 				write_section,
