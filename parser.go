@@ -143,10 +143,10 @@ func Candidates(v *Visitor, pkg *ast.Package) []FoundFunction {
 
 const (
 	PARSE_ARGS = `
-	raw := make([]byte, 0, 0)
-	if _, err := req.Body.Read(raw); err != nil {panic(err)}
+	raw, err := ioutil.ReadAll(req.Body)
+	if err != nil {panic(err)}
 	var parsed map[string]interface{}
-	if err := json.Unmarshal(raw, &parsed); err != nil {panic(err)}`
+	if err = json.Unmarshal(raw, &parsed); err != nil {panic(err)}`
 	WRITE_STRING = `
 	io.WriteString(res, string(body))`
 	FUNCTION = `func (self %s) %s(res http.ResponseWriter, req *http.Request){

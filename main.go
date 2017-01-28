@@ -12,6 +12,7 @@ const PREAMBLE = `package %s
 import (
     "io"
     "net/http"
+    "io/ioutil"
     "encoding/json"
 )
 `
